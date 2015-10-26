@@ -52,49 +52,32 @@ static void compass_heading_handler(CompassHeadingData heading_data) {
     text_layer_set_background_color(s_text_layer_calib_state, GColorBlack);
     text_layer_set_text_color(s_text_layer_calib_state, GColorWhite);
     text_layer_set_font(s_text_layer_calib_state, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
-    text_layer_set_text_alignment(s_text_layer_calib_state, GTextAlignmentCenter);
-  } else {
+    text_layer_set_text(s_text_layer_calib_state, "Compass is calibrating!\n\nMove your arm to aid calibration.");
+  } else if (heading_data.compass_status == CompassStatusCalibrating) {
     // Show status at the top
     alert_bounds = GRect(0, -3, bounds.size.w, bounds.size.h / 7);
     text_layer_set_background_color(s_text_layer_calib_state, GColorClear);
     text_layer_set_text_color(s_text_layer_calib_state, GColorBlack);
     text_layer_set_font(s_text_layer_calib_state, fonts_get_system_font(FONT_KEY_GOTHIC_18));
-    text_layer_set_text_alignment(s_text_layer_calib_state, GTextAlignmentLeft);
+    text_layer_set_text(s_text_layer_calib_state, "Tuning...");
   }
+  text_layer_set_text_alignment(s_text_layer_calib_state, GTextAlignmentCenter);
   layer_set_frame(text_layer_get_layer(s_text_layer_calib_state), alert_bounds);
-
-  // Display state of the compass
-  static char s_valid_buf[64];
-  switch (heading_data.compass_status) {
-    case CompassStatusDataInvalid:
-      snprintf(s_valid_buf, sizeof(s_valid_buf), "%s", "Compass is calibrating!\n\nMove your arm to aid calibration.");
-      break;
-    case CompassStatusCalibrating:
-      snprintf(s_valid_buf, sizeof(s_valid_buf), "%s", "Fine tuning...");
-      break;
-    case CompassStatusCalibrated:
-      snprintf(s_valid_buf, sizeof(s_valid_buf), "%s", "Calibrated");
-      break;
-  }
-  text_layer_set_text(s_text_layer_calib_state, s_valid_buf);
 
   // trigger layer for refresh
   layer_mark_dirty(s_path_layer);
 }
 
 static void path_layer_update_callback(Layer *path, GContext *ctx) {
-#ifdef PBL_COLOR
-  graphics_context_set_fill_color(ctx, GColorRed);
-#endif
+  graphics_context_set_fill_color(ctx, PBL_IF_COLOR_ELSE(GColorRed, GColorBlack));
   gpath_draw_filled(ctx, s_needle_north);       
-#ifndef PBL_COLOR
+
   graphics_context_set_fill_color(ctx, GColorBlack);
-#endif  
   gpath_draw_outline(ctx, s_needle_south);                     
 
   // creating centerpoint                 
   GRect bounds = layer_get_frame(path);          
-  GPoint path_center = GPoint(bounds.size.w / 2, bounds.size.h / 2);  
+  GPoint path_center = grect_center_point(&bounds);
   graphics_fill_circle(ctx, path_center, 3);       
 
   // then put a white circle on top               
@@ -112,7 +95,7 @@ static void main_window_load(Window *window) {
   bitmap_layer_set_bitmap(s_bitmap_layer, s_background_bitmap);
   
   // Make needle background 'transparent' with GCompOpAnd
-  bitmap_layer_set_compositing_mode(s_bitmap_layer, GCompOpAnd);
+  bitmap_layer_set_compositing_mode(s_bitmap_layer, PBL_IF_COLOR_ELSE(GCompOpSet, GCompOpAnd));
   layer_add_child(window_layer, bitmap_layer_get_layer(s_bitmap_layer));
 
   // Create the layer in which we will draw the compass needles
@@ -132,7 +115,8 @@ static void main_window_load(Window *window) {
   gpath_move_to(s_needle_south, center);
 
   // Place text layers onto screen: one for the heading and one for calibration status
-  s_heading_layer = text_layer_create(GRect(12, bounds.size.h * 3 / 4, bounds.size.w / 4, bounds.size.h / 5));
+  s_heading_layer = text_layer_create(
+    GRect(PBL_IF_ROUND_ELSE(40, 12), bounds.size.h * 3 / 4, bounds.size.w / 4, bounds.size.h / 5));
   text_layer_set_text(s_heading_layer, "No Data");
   layer_add_child(window_layer, text_layer_get_layer(s_heading_layer));
 
@@ -141,6 +125,10 @@ static void main_window_load(Window *window) {
   text_layer_set_background_color(s_text_layer_calib_state, GColorClear);
 
   layer_add_child(window_layer, text_layer_get_layer(s_text_layer_calib_state));
+
+#if defined(PBL_ROUND)
+  text_layer_enable_screen_text_flow_and_paging(s_text_layer_calib_state, 5);
+#endif
 }
 
 static void main_window_unload(Window *window) {
@@ -155,7 +143,7 @@ static void main_window_unload(Window *window) {
 
 static void init() {
   // initialize compass and set a filter to 2 degrees
-  compass_service_set_heading_filter(2 * (TRIG_MAX_ANGLE / 360));
+  compass_service_set_heading_filter(DEG_TO_TRIGANGLE(2));
   compass_service_subscribe(&compass_heading_handler);
 
   s_main_window = window_create();
