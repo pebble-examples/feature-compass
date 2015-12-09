@@ -12,7 +12,7 @@
   "resources": {
     "media": [
       {
-        "type": "png",
+        "type": "bitmap",
         "name": "COMPASS_BACKGROUND",
         "file": "images/compass_background.png"
       }
