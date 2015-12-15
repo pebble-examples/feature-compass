@@ -9,11 +9,11 @@
 #include "pebble.h"
 
 // Vector paths for the compass needles
-static const GPathInfo NEEDLE_NORTH_POINTS = { 
+static const GPathInfo NEEDLE_NORTH_POINTS = {
   3,
   (GPoint[]) { { -8, 0 }, { 8, 0 }, { 0, -36 } }
 };
-static const GPathInfo NEEDLE_SOUTH_POINTS = { 
+static const GPathInfo NEEDLE_SOUTH_POINTS = {
   3,
   (GPoint[]) { { 8, 0 }, { 0, 36 }, { -8, 0 } }
 };
@@ -44,8 +44,8 @@ static void compass_heading_handler(CompassHeadingData heading_data) {
   text_layer_set_text(s_heading_layer, s_heading_buf);
 
   // Modify alert layout depending on calibration state
-  GRect bounds = layer_get_frame(window_get_root_layer(s_main_window)); 
-  GRect alert_bounds; 
+  GRect bounds = layer_get_frame(window_get_root_layer(s_main_window));
+  GRect alert_bounds;
   if(heading_data.compass_status == CompassStatusDataInvalid) {
     // Tell user to move their arm
     alert_bounds = GRect(0, 0, bounds.size.w, bounds.size.h);
@@ -70,19 +70,19 @@ static void compass_heading_handler(CompassHeadingData heading_data) {
 
 static void path_layer_update_callback(Layer *path, GContext *ctx) {
   graphics_context_set_fill_color(ctx, PBL_IF_COLOR_ELSE(GColorRed, GColorBlack));
-  gpath_draw_filled(ctx, s_needle_north);       
+  gpath_draw_filled(ctx, s_needle_north);
 
   graphics_context_set_fill_color(ctx, GColorBlack);
-  gpath_draw_outline(ctx, s_needle_south);                     
+  gpath_draw_outline(ctx, s_needle_south);
 
-  // creating centerpoint                 
-  GRect bounds = layer_get_frame(path);          
+  // creating centerpoint
+  GRect bounds = layer_get_frame(path);
   GPoint path_center = grect_center_point(&bounds);
-  graphics_fill_circle(ctx, path_center, 3);       
+  graphics_fill_circle(ctx, path_center, 3);
 
-  // then put a white circle on top               
+  // then put a white circle on top
   graphics_context_set_fill_color(ctx, GColorWhite);
-  graphics_fill_circle(ctx, path_center, 2);                      
+  graphics_fill_circle(ctx, path_center, 2);
 }
 
 static void main_window_load(Window *window) {
@@ -93,14 +93,14 @@ static void main_window_load(Window *window) {
   s_bitmap_layer = bitmap_layer_create(bounds);
   s_background_bitmap = gbitmap_create_with_resource(RESOURCE_ID_COMPASS_BACKGROUND);
   bitmap_layer_set_bitmap(s_bitmap_layer, s_background_bitmap);
-  
+
   // Make needle background 'transparent' with GCompOpAnd
-  bitmap_layer_set_compositing_mode(s_bitmap_layer, PBL_IF_COLOR_ELSE(GCompOpSet, GCompOpAnd));
+  bitmap_layer_set_compositing_mode(s_bitmap_layer, GCompOpSet);
   layer_add_child(window_layer, bitmap_layer_get_layer(s_bitmap_layer));
 
   // Create the layer in which we will draw the compass needles
   s_path_layer = layer_create(bounds);
-  
+
   //  Define the draw callback to use for this layer
   layer_set_update_proc(s_path_layer, path_layer_update_callback);
   layer_add_child(window_layer, s_path_layer);
@@ -147,9 +147,6 @@ static void init() {
   compass_service_subscribe(&compass_heading_handler);
 
   s_main_window = window_create();
-#ifdef PBL_SDK_2
-  window_set_fullscreen(s_main_window, true);
-#endif
   window_set_window_handlers(s_main_window, (WindowHandlers) {
     .load = main_window_load,
     .unload = main_window_unload,
