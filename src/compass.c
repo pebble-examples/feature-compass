@@ -26,22 +26,10 @@ static TextLayer *s_heading_layer, *s_text_layer_calib_state;
 
 static GPath *s_needle_north, *s_needle_south;
 
-static void compass_heading_handler(CompassHeadingData heading_data) {
+static void prv_compass_heading_handler(CompassHeadingData heading_data) {
   // rotate needle accordingly
   gpath_rotate_to(s_needle_north, heading_data.magnetic_heading);
   gpath_rotate_to(s_needle_south, heading_data.magnetic_heading);
-
-  // display heading in degrees and radians
-  static char s_heading_buf[64];
-  snprintf(s_heading_buf, sizeof(s_heading_buf),
-    " %ld°\n%ld.%02ldpi",
-    TRIGANGLE_TO_DEG(heading_data.magnetic_heading),
-    // display radians, units digit
-    (TRIGANGLE_TO_DEG(heading_data.magnetic_heading) * 2) / 360,
-    // radians, digits after decimal
-    ((TRIGANGLE_TO_DEG(heading_data.magnetic_heading) * 200) / 360) % 100
-  );
-  text_layer_set_text(s_heading_layer, s_heading_buf);
 
   // Modify alert layout depending on calibration state
   GRect bounds = layer_get_frame(window_get_root_layer(s_main_window));
@@ -64,11 +52,23 @@ static void compass_heading_handler(CompassHeadingData heading_data) {
   text_layer_set_text_alignment(s_text_layer_calib_state, GTextAlignmentCenter);
   layer_set_frame(text_layer_get_layer(s_text_layer_calib_state), alert_bounds);
 
+  // display heading in degrees and radians
+  static char s_heading_buf[64];
+  snprintf(s_heading_buf, sizeof(s_heading_buf),
+    " %ld°\n%ld.%02ldpi",
+    TRIGANGLE_TO_DEG(TRIG_MAX_ANGLE - heading_data.magnetic_heading),
+    // display radians, units digit
+    (TRIGANGLE_TO_DEG(TRIG_MAX_ANGLE - heading_data.magnetic_heading) * 2) / 360,
+    // radians, digits after decimal
+    ((TRIGANGLE_TO_DEG(TRIG_MAX_ANGLE - heading_data.magnetic_heading) * 200) / 360) % 100
+  );
+  text_layer_set_text(s_heading_layer, s_heading_buf);
+
   // trigger layer for refresh
   layer_mark_dirty(s_path_layer);
 }
 
-static void path_layer_update_callback(Layer *path, GContext *ctx) {
+static void prv_path_layer_update_callback(Layer *path, GContext *ctx) {
   graphics_context_set_fill_color(ctx, PBL_IF_COLOR_ELSE(GColorRed, GColorBlack));
   gpath_draw_filled(ctx, s_needle_north);
 
@@ -85,7 +85,7 @@ static void path_layer_update_callback(Layer *path, GContext *ctx) {
   graphics_fill_circle(ctx, path_center, 2);
 }
 
-static void main_window_load(Window *window) {
+static void prv_main_window_load(Window *window) {
   Layer *window_layer = window_get_root_layer(window);
   GRect bounds = layer_get_frame(window_layer);
 
@@ -102,7 +102,7 @@ static void main_window_load(Window *window) {
   s_path_layer = layer_create(bounds);
 
   //  Define the draw callback to use for this layer
-  layer_set_update_proc(s_path_layer, path_layer_update_callback);
+  layer_set_update_proc(s_path_layer, prv_path_layer_update_callback);
   layer_add_child(window_layer, s_path_layer);
 
   // Initialize and define the two paths used to draw the needle to north and to south
@@ -131,7 +131,7 @@ static void main_window_load(Window *window) {
 #endif
 }
 
-static void main_window_unload(Window *window) {
+static void prv_main_window_unload(Window *window) {
   text_layer_destroy(s_heading_layer);
   text_layer_destroy(s_text_layer_calib_state);
   gpath_destroy(s_needle_north);
@@ -141,26 +141,26 @@ static void main_window_unload(Window *window) {
   bitmap_layer_destroy(s_bitmap_layer);
 }
 
-static void init() {
+static void prv_init() {
   // initialize compass and set a filter to 2 degrees
   compass_service_set_heading_filter(DEG_TO_TRIGANGLE(2));
-  compass_service_subscribe(&compass_heading_handler);
+  compass_service_subscribe(&prv_compass_heading_handler);
 
   s_main_window = window_create();
   window_set_window_handlers(s_main_window, (WindowHandlers) {
-    .load = main_window_load,
-    .unload = main_window_unload,
+    .load = prv_main_window_load,
+    .unload = prv_main_window_unload,
   });
   window_stack_push(s_main_window, true);
 }
 
-static void deinit() {
+static void prv_deinit() {
   compass_service_unsubscribe();
   window_destroy(s_main_window);
 }
 
 int main() {
-  init();
+  prv_init();
   app_event_loop();
-  deinit();
+  prv_deinit();
 }
